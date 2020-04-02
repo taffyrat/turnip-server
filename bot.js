@@ -1,5 +1,7 @@
 require('dotenv').config()
 
+console.log(process.env.GOOGLE_SERVICES_CLIENT_EMAIL)
+
 const Discord = require('discord.js')
 const { GoogleSpreadsheet } = require('google-spreadsheet')
  
@@ -160,7 +162,7 @@ const handleBuyCommand = async (message) => {
 
     // Get the quantity and price
     const match = message.content.match(/([0-9]+) x ([0-9]+)/i)
-    const quantity = match && parseInt(match[1])
+    // const quantity = match && parseInt(match[1])
     const price = match && parseInt(match[2])
 
     const quanityCell = sheet.getCellByA1('D3')
@@ -176,17 +178,17 @@ const handleHelpCommand = (message) => {
     message.channel.send(
 `**Buy turnips**
 I'll record the number of turnips you purchased, and their price.
-Format: \@turnip <number of turnips> x <price per turnip>
-Example: \@turnip buy 100 x 99
+Format: \`\@turnip buy <number of turnips> x <price per turnip>\`
+Example: \`\@turnip buy 100 x 99\`
 
 **Record a turnip price**
 By default, I'll add your price to the current time slot. If you want to specify a different time, add morning or afternoon to your message, or the day of the week.
-Format: <price per turnip>/t
-Examples: 100/t, 100/t morning, 100/t afternoon friday
+Format: \`<price per turnip>/t\`
+Examples: \`100/t\`, \`100/t morning\`, \`100/t afternoon friday\`
 
 **Sell turnips**
 I'll tell you who to sell to, and how much you'll make.
-Format: \@turnip sell
+Format: \`\@turnip sell\`
 `)
 }
 

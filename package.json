@@ -5,6 +5,7 @@
     "main": "bot.js",
     "author": "cdegit",
     "dependencies": {
+        "canvas": "^2.6.1",
         "discord.js": "^12.1.1",
         "dotenv": "^8.2.0",
         "google-spreadsheet": "^3.0.10"

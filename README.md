@@ -38,6 +38,14 @@ The bot will check your current quantity of turnips purchased, along with the pr
 @turnip info
 ```
 
+### Graph
+
+The bot will render a graph showing the turnip prices for all users over all time slots.
+
+```
+@turnip graph
+```
+
 ### Help
 
 The bot will print out a list of commands.

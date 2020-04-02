@@ -1,11 +1,11 @@
 require('dotenv').config()
 
-console.log(process.env.GOOGLE_SERVICES_CLIENT_EMAIL)
-
-const Discord = require('discord.js')
+const { Client, MessageAttachment } = require('discord.js')
 const { GoogleSpreadsheet } = require('google-spreadsheet')
+
+const { createChart } = require('./viz')
  
-const client = new Discord.Client()
+const client = new Client()
  
 const authorMap = {
     urstronaut: 'Cassie',
@@ -14,6 +14,15 @@ const authorMap = {
     Ebrietas: 'Jamie',
     Rikuzi: 'Reynold'
 }
+
+// TODO: Assign these in a better way
+const colors = [
+    'blue',
+    'purple',
+    'red',
+    'green',
+    'grey'
+]
 
 let doc
 
@@ -216,7 +225,42 @@ Format: \`\@turnip sell\`
 **Info**
 I'll tell you how many turnips you sold, how much you sold them for, and the total cost.
 Format: \`@turnip info\`
+
+**Graph**
+I'll show you the current graph including the data for all users.
+Format: \`@turnip graph\`
 `)
+}
+
+const handleGraphCommand = async (message) => {
+    // Get all prices for all users
+    const sheet = await findAndLoadSheet('Graph')
+    await sheet.loadCells('A29:M33')
+
+    const data = []
+
+    const count = Object.keys(authorMap).length
+    for (let i = 0; i < count; i++) {
+        const nameCell = sheet.getCellByA1(`A${29 + i}`)
+        const name = nameCell.value.replace(':', '')
+
+        const values = []
+        for (let k = 0; k < 12; k++) {
+            const val = sheet.getCell(28 + i, k + 1).value
+            values.push(val || 0)
+        }
+
+        data.push({
+            user: name,
+            values,
+            color: colors[i]
+        })
+    }
+
+    await createChart(data, './chart.png')
+
+    const attachment = new MessageAttachment('./chart.png')
+    message.channel.send(attachment)
 }
 
 client.on('ready', () => {
@@ -235,27 +279,38 @@ client.on('message', (message) => {
     const mentioned = message.mentions.users.find(({username}) => username === 'turnip')
 
     if (mentioned && /buy/i.test(message.content)) {
+        console.log('Received the buy command')
         handleBuyCommand(message)
         return
     }
 
     if (mentioned && /sell/i.test(message.content)) {
+        console.log('Received the sell command')
         handleSellCommand(message)
         return
     }
 
     if (mentioned && /help/i.test(message.content)) {
+        console.log('Received the help command')
         handleHelpCommand(message)
         return
     }
     
     if (mentioned && /info/i.test(message.content)) {
+        console.log('Received the info command')
         handleInfoCommand(message)
+        return
+    }
+
+    if (mentioned && /graph/i.test(message.content)) {
+        console.log('Received the graph command')
+        handleGraphCommand(message)
         return
     }
     
     // Does this message contain a turnip price?   
     if (/[0-9]+\/t/i.test(message.content)) {
+        console.log('Received the turnip command')
         handleTurnipPrice(message)
         return
     }

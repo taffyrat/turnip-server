@@ -177,7 +177,7 @@ const handleHelpCommand = (message) => {
 `**Buy turnips**
 I'll record the number of turnips you purchased, and their price.
 Format: \@turnip <number of turnips> x <price per turnip>
-Example: \@turnip 100 x 99
+Example: \@turnip buy 100 x 99
 
 **Record a turnip price**
 By default, I'll add your price to the current time slot. If you want to specify a different time, add morning or afternoon to your message, or the day of the week.

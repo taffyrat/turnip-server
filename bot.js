@@ -51,7 +51,7 @@ const findAndUpdatePrice = async (price, author, message) => {
         cell.value = price
         await sheet.saveUpdatedCells()
 
-        message.react('🍆')
+        message.react(hour < 12 ? '☀️' : '🌘')
     } else {
         // Show an error message
         message.channel.send('Sorry, something went wrong')

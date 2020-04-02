@@ -36,13 +36,17 @@ const findAndLoadSheet = async (author) => {
     })
 
     const sheet = doc.sheetsByIndex[correctSheetIndex]
-    await sheet.loadCells('C6:C17')
+    await sheet.loadCells('C3:D17')
 
     return sheet
 }
 
+const getCellIndex = (dayOfWeek, hour) => {
+    return 6 + (dayOfWeek * 2) + (hour < 12 ? 0 : 1)
+}
+
 const updatePrice = async (dayOfWeek, hour, price, sheet) => {
-    const cellIndex = 6 + (dayOfWeek * 2) + (hour < 12 ? 0 : 1)
+    const cellIndex = getCellIndex(dayOfWeek, hour)
     const cell = sheet.getCellByA1(`C${cellIndex}`)
     cell.value = price
     await sheet.saveUpdatedCells()
@@ -80,7 +84,7 @@ const checkContentForDay = (content) => {
     }
 }
 
-const handleMessage = async (message) => {
+const handleTurnipPrice = async (message) => {
     // Extract the number
     const match = message.content.match(/([0-9]+)\/t/i)
     const price = match && parseInt(match[1])
@@ -110,18 +114,85 @@ const handleMessage = async (message) => {
     message.react(hour < 12 ? '☀️' : '🌘')
 }
 
+const handleSellCommand = async (message) => {
+    // Determine the current time slot
+    const dayOfWeek = getDayFromCreatedAt(message.createdAt)
+    const hour = getHourFromCreatedAt(message.createdAt)
+    const currentPriceCellIndex = getCellIndex(dayOfWeek, hour)
+
+    let highestPrice = 0
+    let highestPriceUser
+
+    // Get the current price for all users
+    for (let [key, value] of Object.entries(authorMap)) {
+        const sheet = await findAndLoadSheet(value)
+        const currentPriceCell = sheet.getCellByA1(`C${currentPriceCellIndex}`)
+
+        if (currentPriceCell.value > highestPrice) {
+            highestPrice = currentPriceCell.value
+            highestPriceUser = value
+        }
+    }
+
+    // Find the buy price of the current user
+    const author = authorMap[message.author.username]
+    const sheet = await findAndLoadSheet(author)
+
+    const quanityCell = sheet.getCellByA1('D3')
+    const priceCell = sheet.getCellByA1('D4')
+    const quantity = quanityCell.value
+    const buyPrice = priceCell.value
+
+    if (buyPrice >= highestPrice) {
+        message.channel.send(`Don't sell! If you have to, ${highestPriceUser} has the best price at ${highestPrice} bells/turnip`)
+    } else {
+        const diff = highestPrice - buyPrice
+        const profit = diff * quantity
+
+        message.channel.send(`If you sell to ${highestPriceUser}, you can make a profit of ${profit} bells. Their price is ${highestPrice} bells/turnip`)
+    }
+}
+
+const handleBuyCommand = async (message) => {
+    // Get the name of the user
+    const author = authorMap[message.author.username]
+    const sheet = await findAndLoadSheet(author)
+
+    // Get the quantity and price
+    const match = message.content.match(/([0-9]+) x ([0-9]+)/i)
+    const quantity = match && parseInt(match[1])
+    const price = match && parseInt(match[2])
+
+    const quanityCell = sheet.getCellByA1('D3')
+    const priceCell = sheet.getCellByA1('D4')
+    quanityCell.value = quantity
+    priceCell.value = price
+    await sheet.saveUpdatedCells()
+
+    message.react('💸')
+}
+
 client.on('ready', () => {
     initDoc()
 })
  
 client.on('message', (message) => {
-    // Does this message contain a turnip price?
-    // Expected formats:
-    //     <some number>/t
-    //     <num>/t morning
-    //     <num>/t friday morning
+    const mentioned = message.mentions.users.find(({username}) => username === 'turnip')
+
+    if (mentioned && /buy/i.test(message.content)) {
+        handleBuyCommand(message)
+        return
+    }
+
+    if (mentioned && /sell/i.test(message.content)) {
+        handleSellCommand(message)
+        return
+    }
+
+    // Does this message contain a turnip price?   
     if (/[0-9]+\/t/i.test(message.content)) {
-        handleMessage(message)
+        handleTurnipPrice(message)
+        return
     }
 })
 

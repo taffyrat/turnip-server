@@ -1,5 +1,6 @@
+require('dotenv').config()
+
 const Discord = require('discord.js')
-const auth = require('./auth.json')
 const { GoogleSpreadsheet } = require('google-spreadsheet')
  
 const client = new Discord.Client()
@@ -15,9 +16,11 @@ const authorMap = {
 let doc
 
 const initDoc = async () => {
-    const creds = require('./turnip-server-30a3d36cb6a8.json')
-    doc = new GoogleSpreadsheet(auth.sheetID)
-    await doc.useServiceAccountAuth(creds)
+    doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID)
+    await doc.useServiceAccountAuth({
+        client_email: process.env.GOOGLE_SERVICES_CLIENT_EMAIL,
+        private_key: process.env.GOOGLE_SERVICES_PRIVATE_KEY,
+    })
     await doc.loadInfo()
     console.log('Connected to Google Sheets')
 }
@@ -77,4 +80,4 @@ client.on('message', (message) => {
     }
 })
 
-client.login(auth.token)
+client.login(process.env.DISCORD_BOT_TOKEN)

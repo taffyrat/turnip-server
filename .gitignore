@@ -102,3 +102,7 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Keys and stuff
+auth.json
+turnip-server-30a3d36cb6a8.json

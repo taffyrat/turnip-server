@@ -1,0 +1,11 @@
+{
+    "name": "turnip-bot",
+    "version": "1.0.0",
+    "description": "Tracking the Stalk Market",
+    "main": "bot.js",
+    "author": "cdegit",
+    "dependencies": {
+        "discord.js": "^12.1.1",
+        "google-spreadsheet": "^3.0.10"
+    }
+}

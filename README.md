@@ -29,3 +29,19 @@ The bot will check the current prices and determine how much money you could mak
 ```
 @turnip sell
 ```
+
+### Turnip info
+
+The bot will check your current quantity of turnips purchased, along with the price you bought them for and the total price.
+
+```
+@turnip info
+```
+
+### Help
+
+The bot will print out a list of commands.
+
+```
+@turnip help
+```

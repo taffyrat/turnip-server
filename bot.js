@@ -197,9 +197,12 @@ client.on('ready', () => {
 })
  
 client.on('message', (message) => {
-    // Don't respond to the help message
-    if (/\*\*Buy turnips\*\*/.test(message.content)) {
+    if (message.author.bot) {
         return
+    }
+    
+    if (message.author === client.user) {
+        return 
     }
 
     const mentioned = message.mentions.users.find(({username}) => username === 'turnip')

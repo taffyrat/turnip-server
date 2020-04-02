@@ -144,14 +144,18 @@ const handleSellCommand = async (message) => {
     const priceCell = sheet.getCellByA1('D4')
     const quantity = quanityCell.value
     const buyPrice = priceCell.value
+    const pricePerTurnipDiff = highestPrice - buyPrice
+    const bellDelta = pricePerTurnipDiff * quantity
+    
+    if (!quantity || !buyPrice) {
+        message.channel.send(`Please call the \`buy\` command before attempting to sell.`)
+        return
+    }
 
     if (buyPrice >= highestPrice) {
-        message.channel.send(`Don't sell! If you have to, ${highestPriceUser} has the best price at ${highestPrice} bells/turnip`)
+        message.channel.send(`Don't sell! You'll lose ${bellDelta} bells. If you have to, ${highestPriceUser} has the best price at ${highestPrice} bells/turnip`)
     } else {
-        const diff = highestPrice - buyPrice
-        const profit = diff * quantity
-
-        message.channel.send(`If you sell to ${highestPriceUser}, you can make a profit of ${profit} bells. Their price is ${highestPrice} bells/turnip`)
+        message.channel.send(`If you sell to ${highestPriceUser}, you can make a profit of ${bellDelta} bells. Their price is ${highestPrice} bells/turnip`)
     }
 }
 
@@ -162,7 +166,7 @@ const handleBuyCommand = async (message) => {
 
     // Get the quantity and price
     const match = message.content.match(/([0-9]+) x ([0-9]+)/i)
-    // const quantity = match && parseInt(match[1])
+    const quantity = match && parseInt(match[1])
     const price = match && parseInt(match[2])
 
     const quanityCell = sheet.getCellByA1('D3')
@@ -172,6 +176,25 @@ const handleBuyCommand = async (message) => {
     await sheet.saveUpdatedCells()
 
     message.react('💸')
+    const totalBells = quantity * price
+    message.channel.send(`You spent ${totalBells} bells.`)
+}
+
+const handleInfoCommand = async (message) => {
+    // Get the name of the user
+    const author = authorMap[message.author.username]
+    const sheet = await findAndLoadSheet(author)
+
+    // Get the quantity and price
+    const match = message.content.match(/([0-9]+) x ([0-9]+)/i)
+    
+    const quanityCell = sheet.getCellByA1('D3')
+    const priceCell = sheet.getCellByA1('D4')
+    const quantity = quanityCell.value || 0
+    const price = priceCell.value || 0
+
+    const totalBells = quantity * price
+    message.channel.send(`You bought ${quantity} turnips at ${price} per turnip, in total spent ${totalBells} bells.`)
 }
 
 const handleHelpCommand = (message) => {
@@ -189,6 +212,10 @@ Examples: \`100/t\`, \`100/t morning\`, \`100/t afternoon friday\`
 **Sell turnips**
 I'll tell you who to sell to, and how much you'll make.
 Format: \`\@turnip sell\`
+
+**Info**
+I'll tell you how many turnips you sold, how much you sold them for, and the total cost.
+Format: \`@turnip info\`
 `)
 }
 
@@ -221,7 +248,12 @@ client.on('message', (message) => {
         handleHelpCommand(message)
         return
     }
-
+    
+    if (mentioned && /info/i.test(message.content)) {
+        handleInfoCommand(message)
+        return
+    }
+    
     // Does this message contain a turnip price?   
     if (/[0-9]+\/t/i.test(message.content)) {
         handleTurnipPrice(message)

@@ -6,27 +6,30 @@ const { GoogleSpreadsheet } = require('google-spreadsheet')
 const { createChart } = require('./viz')
  
 const client = new Client()
- 
-const authorMap = {
-    urstronaut: 'Cassie',
-    aerialRansacker: 'Rachael',
-    taffyrat: 'Jake',
-    Ebrietas: 'Jamie',
-    Rikuzi: 'Reynold'
-}
-
-// TODO: Assign these in a better way
-const colors = [
-    'blue',
-    'purple',
-    'red',
-    'green',
-    'grey'
-]
 
 let doc
 
+const authors = []
+
+const getAuthors = async () => {
+    const sheet = await findAndLoadSheet('Config')
+    await sheet.loadCells('A1:A')
+    await sheet.loadCells('B1:B')
+
+    let i = 2
+    let cell
+    while ((cell = sheet.getCellByA1(`A${i}`)).value !== null) {
+        authors.push({
+            name: cell.value,
+            color: sheet.getCellByA1(`B${i}`).value
+        })
+
+        i += 1
+    }
+}
+
 const initDoc = async () => {
+    console.log('Initializing...')
     doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID)
     await doc.useServiceAccountAuth({
         client_email: process.env.GOOGLE_SERVICES_CLIENT_EMAIL,
@@ -34,13 +37,16 @@ const initDoc = async () => {
     })
     await doc.loadInfo()
     console.log('Connected to Google Sheets')
+    console.log('Loading author information...')
+    await getAuthors()
+    console.log('Authors have been loaded')
 }
 
-const findAndLoadSheet = async (author) => {
+const findAndLoadSheet = async (title) => {
     let correctSheetIndex
 
     doc.sheetsByIndex.forEach((sheet, i) => {
-        if (sheet.title === author) {
+        if (sheet.title === title) {
             // Setting just the ID to avoid having aync inside the forEach loop
             correctSheetIndex = i
         }
@@ -101,7 +107,7 @@ const handleTurnipPrice = async (message) => {
     const price = match && parseInt(match[1])
 
     // Get the name of the user
-    const author = authorMap[message.author.username]
+    const author = message.author.username
 
     // Does this message contain a time of day?
     let hour
@@ -131,22 +137,29 @@ const handleSellCommand = async (message) => {
     const hour = getHourFromCreatedAt(message.createdAt)
     const currentPriceCellIndex = getCellIndex(dayOfWeek, hour)
 
+    // Get the current price for all users
     let highestPrice = 0
     let highestPriceUser
 
-    // Get the current price for all users
-    for (let [key, value] of Object.entries(authorMap)) {
-        const sheet = await findAndLoadSheet(value)
-        const currentPriceCell = sheet.getCellByA1(`C${currentPriceCellIndex}`)
+    const listOfPromises = authors.map(async (author) => {
+        return await findAndLoadSheet(author.name)
+            .then((sheet) => ({sheet, author}))
+    })
 
-        if (currentPriceCell.value > highestPrice) {
-            highestPrice = currentPriceCell.value
-            highestPriceUser = value
-        }
-    }
+    await Promise.all(listOfPromises)
+        .then((tuples) => {
+            tuples.forEach(({sheet, author}) => {
+                const currentPriceCell = sheet.getCellByA1(`C${currentPriceCellIndex}`)
+
+                if (currentPriceCell.value > highestPrice) {
+                    highestPrice = currentPriceCell.value
+                    highestPriceUser = author.name
+                }
+            })
+        })
 
     // Find the buy price of the current user
-    const author = authorMap[message.author.username]
+    const author = message.author.username
     const sheet = await findAndLoadSheet(author)
 
     const quanityCell = sheet.getCellByA1('D3')
@@ -170,7 +183,7 @@ const handleSellCommand = async (message) => {
 
 const handleBuyCommand = async (message) => {
     // Get the name of the user
-    const author = authorMap[message.author.username]
+    const author = message.author.username
     const sheet = await findAndLoadSheet(author)
 
     // Get the quantity and price
@@ -191,11 +204,8 @@ const handleBuyCommand = async (message) => {
 
 const handleInfoCommand = async (message) => {
     // Get the name of the user
-    const author = authorMap[message.author.username]
+    const author = message.author.username
     const sheet = await findAndLoadSheet(author)
-
-    // Get the quantity and price
-    const match = message.content.match(/([0-9]+) x ([0-9]+)/i)
     
     const quanityCell = sheet.getCellByA1('D3')
     const priceCell = sheet.getCellByA1('D4')
@@ -238,11 +248,10 @@ const handleGraphCommand = async (message) => {
     await sheet.loadCells('A29:M33')
 
     const data = []
-
-    const count = Object.keys(authorMap).length
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < authors.length; i++) {
         const nameCell = sheet.getCellByA1(`A${29 + i}`)
-        const name = nameCell.value.replace(':', '')
+        const name = nameCell.value
+        const author = authors.find((author) => author.name === name.trim())
 
         const values = []
         for (let k = 0; k < 12; k++) {
@@ -251,9 +260,9 @@ const handleGraphCommand = async (message) => {
         }
 
         data.push({
-            user: name,
+            user: author.name,
             values,
-            color: colors[i]
+            color: author.color
         })
     }
 

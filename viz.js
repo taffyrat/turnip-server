@@ -93,7 +93,7 @@ const renderData = (ctx, o, data) => {
         ctx.fillStyle = entry.color
     
         // Render the legend entry
-        const labelX = o.margin.left + (userIndex * 100)
+        const labelX = o.margin.left + (userIndex * 150)
         const labelY = o.margin.top / 2
         const labelRectSize = 10
         ctx.fillRect(labelX, labelY - labelRectSize, labelRectSize, labelRectSize)

@@ -115,7 +115,49 @@ const handleTurnipPrice = async (message) => {
     message.react(hour < 12 ? '☀️' : '🌘')
 }
 
+const getHighestPossibilityForAllUsers = () => {
+    const allSummaries = data.users.map((user) => {
+        const summary = getSummaryForUser(user)
+        summary.username = user.name
+        return summary
+    })
+
+    let highestValue = 0
+    let highestUsername
+    let priceIndex
+
+    // Ignore all values that have already passed
+    // We only want future values
+    allSummaries.forEach((summary) => {
+        summary.prices.forEach(({min, max}, i) => {
+            if (min === max) {
+                return
+            }
+
+            if (max > highestValue) {
+                highestValue = max
+                highestUsername = summary.username
+                priceIndex = i
+            }
+        })
+    })
+
+    // Get the timeslot from the index
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const isOdd = priceIndex % 2 === 1
+    const day = isOdd ? days[(priceIndex - 1) / 2] : days[priceIndex/2]
+    const time = isOdd ? 'afternoon' : 'morning'
+
+    return ({
+        price: highestValue,
+        username: highestUsername,
+        timeslot: `${day} ${time}`
+    })
+}
+
 const handleSellCommand = async (message) => {
+    message.react('🤔')
+
     // Determine the current time slot
     const dayOfWeek = getDayFromCreatedAt(message.createdAt)
     const hour = getHourFromCreatedAt(message.createdAt)
@@ -133,6 +175,8 @@ const handleSellCommand = async (message) => {
         }
     })
 
+    const highestPossibility = getHighestPossibilityForAllUsers()
+
     // Find the buy price of the current user
     const {purchased} = getUser(message.author.username)
 
@@ -145,9 +189,17 @@ const handleSellCommand = async (message) => {
     }
 
     if (purchased.price >= highestPrice) {
-        message.channel.send(`Don't sell! You'll lose ${bellDelta} bells. If you have to, ${highestPriceUser} has the best price at ${highestPrice} bells/turnip`)
+        if (highestPrice < highestPossibility.price) {
+            message.channel.send(`Don't sell! Based on my predictions, ${highestPossibility.username} may have a price as high as ${highestPossibility.price} on ${highestPossibility.timeslot}. You may want to wait until then.`)
+        } else {
+            message.channel.send(`Don't sell! You'll lose ${bellDelta} bells. If you have to, ${highestPriceUser} has the best price at ${highestPrice} bells/turnip`)
+        }
     } else {
-        message.channel.send(`If you sell to ${highestPriceUser}, you can make a profit of ${bellDelta} bells. Their price is ${highestPrice} bells/turnip`)
+        message.channel.send(`If you sell to ${highestPriceUser} now, you can make a profit of ${bellDelta} bells. Their price is ${highestPrice} bells/turnip`)
+
+        if (highestPrice < highestPossibility.price) {
+            message.channel.send(`However, if you wait until ${highestPossibility.timeslot}, ${highestPossibility.username} may have a price as high as ${highestPossibility.price}.`)
+        }
     }
 }
 
@@ -240,6 +292,18 @@ const createAndSendPossibilityChart = async (possibility, i, user, message) => {
     message.channel.send(attachment)
 }
 
+const getSummaryForUser = (user) => {
+    // Replace 0s with NaN to match expected input
+    const prices = [
+        user.islandBuyPrice,
+        user.islandBuyPrice,
+        ...user.prices
+    ].map((price) => price || NaN)
+
+    const poss = analyzePossibilities(prices)
+    return poss[poss.length - 1]
+}
+
 const getPredictionsForUser = (user) => {
     // Replace 0s with NaN to match expected input
     const prices = [
@@ -256,6 +320,7 @@ const getPredictionsForUser = (user) => {
     // If you haven't entered your buy price,
     // possibilities can differ by that
     // but we don't care about those, so THROW 'EM AWAY
+    // TODO: This filtering seems to take a while right now, so we may want to clean it up
     possibilities = possibilities.filter((poss, i, self) => {
         const prices = JSON.stringify(poss.prices.slice(2))
         return i === self.findIndex((p) => {

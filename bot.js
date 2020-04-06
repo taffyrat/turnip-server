@@ -2,9 +2,11 @@ require('dotenv').config()
 
 const { Client, MessageAttachment } = require('discord.js')
 
-const { createChart } = require('./viz')
+const { createChart, createPossibilityChart } = require('./viz')
+const { analyzePossibilities } = require('./predictions')
 
 const fs = require('fs')
+const path = require('path')
  
 const client = new Client()
 
@@ -13,14 +15,16 @@ let data = {
 }
 
 const saveData = () => {
-    fs.writeFileSync('./data.json', JSON.stringify(data))
+    const filename = path.join('.', 'data.json')
+    fs.writeFileSync(filename, JSON.stringify(data))
 }
 
 const initDoc = async () => {
     console.log('Initializing...')
 
-    if (fs.existsSync('./data.json')) {
-        const json = fs.readFileSync('./data.json', 'utf8')
+    const filename = path.join('.', 'data.json')
+    if (fs.existsSync(filename)) {
+        const json = fs.readFileSync(filename, 'utf8')
         data = JSON.parse(json)
     } else {
         saveData()
@@ -187,9 +191,10 @@ Format: \`@turnip graph\`
 }
 
 const handleGraphCommand = async (message) => {
-    await createChart(data.users, './chart.png')
+    const filename = path.join('.', 'charts', 'chart.png')
+    await createChart(data.users, filename)
 
-    const attachment = new MessageAttachment('./chart.png')
+    const attachment = new MessageAttachment(filename)
     message.channel.send(attachment)
 }
 
@@ -206,6 +211,35 @@ const handleAddUserCommand = async (message) => {
     })
 
     saveData()
+}
+
+const createAndSendPossibilityChart = async (possibility, i, user, message) => {
+    // Ignore the first points because they represent the buy price
+    const data = possibility.prices.slice(2)
+    const filename = path.join('.', 'charts', `${user.name}-possibilities-${i}.png`)
+    await createPossibilityChart(data, filename)
+    const attachment = new MessageAttachment(filename)
+    message.channel.send(attachment)
+}
+
+const handlePredictCommand = (message) => {
+    const user = getUser(message.author.username)
+    const prices = [
+        user.buyPrice,
+        user.buyPrice,
+        ...user.prices
+    ]
+    const possibilities = analyzePossibilities(prices)
+
+    if (possibilities.length > 3) {
+        message.channel.send('We don\'t have enough data to determine your pattern yet. Check back after adding some more info!')
+    } else {
+        message.channel.send('We can narrow your pattern down to these possibilities:')
+
+        possibilities.forEach((possibility, i) => {
+            createAndSendPossibilityChart(possibility, i, user, message)
+        })
+    }
 }
 
 client.on('ready', () => {
@@ -256,6 +290,12 @@ client.on('message', (message) => {
     if (mentioned && /add me/i.test(message.content)) {
         console.log('Received the add user command')
         handleAddUserCommand(message)
+        return
+    }
+
+    if (mentioned && /predict/i.test(message.content)) {
+        console.log('Received the predict command')
+        handlePredictCommand(message)
         return
     }
     

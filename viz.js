@@ -53,7 +53,11 @@ const renderXAxis = (ctx, o) => {
 }
 
 const yMap = (input, o) => {
-    const slope = (o.numberOfYTicks * o.yTickDistance) / o.highestPrice
+    // Round highest price up to the nearest 10
+    // To match how we're actually setting this range
+    const high = (Math.ceil(o.highestPrice / 10) + 1) * 10
+
+    const slope = (o.numberOfYTicks * o.yTickDistance) / high
     return slope * input
 }
 
@@ -68,15 +72,14 @@ const renderYAxis = (ctx, o) => {
     ctx.fillText('b/t', 10, o.height / 2)
 
     ctx.textAlign = 'right'
-    // Y axis should scale based on the highest value in the data set provided
-    // It should go 10 above the current highest price
-    // Lines for every 10 bells?
-    for (let i = 0; i < o.numberOfYTicks; i++) {
-        const y = o.xAxisYPosition - (o.yTickDistance * i) - o.innerOffset
+
+    // Don't render the line for 0
+    for (let i = 1; i < o.numberOfYTicks; i++) {
+        const y = o.xAxisYPosition - (o.yTickDistance * i)
 
         ctx.beginPath()
         ctx.lineTo(o.margin.left - 10, y)
-        ctx.lineTo(o.margin.left + 10, y)
+        ctx.lineTo(o.width - o.margin.right, y)
         ctx.stroke()
 
         ctx.fillText(i * 10, o.margin.left - o.innerOffset, y)
@@ -161,7 +164,7 @@ const createChart = async (data, filename) => {
 
     o.yAxisHeight = o.height - o.margin.top - o.margin.bottom
     o.numberOfYTicks = Math.ceil(o.highestPrice / 10) + 1
-    o.yTickDistance = Math.floor(o.yAxisHeight / o.numberOfYTicks)
+    o.yTickDistance = o.yAxisHeight / o.numberOfYTicks
 
     fillBackground(ctx, o)
     renderXAxis(ctx, o)
@@ -170,4 +173,88 @@ const createChart = async (data, filename) => {
     await saveImage(canvas, filename)
 }
 
+const renderPossibilityData = (ctx, o, prices) => {
+    const pointSize = 5
+
+    ctx.textAlign = 'center'
+
+    // Render the data
+    ctx.beginPath()
+
+    prices.forEach(({min, max}, i) => {
+        const x = o.margin.left + o.innerOffset + (o.xTickDistance * i)
+        const pointX = x - (pointSize / 2)
+
+        if (min === max) {
+            const y = o.xAxisYPosition - yMap(min, o)
+            const pointY = y - (pointSize / 2)
+
+            ctx.fillRect(pointX, pointY, pointSize, pointSize)
+            ctx.lineTo(x, y)
+            ctx.fillText(min, x, y - 10)
+            ctx.stroke()
+        } else {
+            ctx.strokeStyle = 'grey'
+            ctx.fillStyle = 'grey'
+
+            const minY = o.xAxisYPosition - yMap(min, o)
+            const maxY = o.xAxisYPosition - yMap(max, o)
+
+            ctx.fillRect(pointX, minY - (pointSize / 2), pointSize, pointSize)
+            ctx.fillRect(pointX, maxY - (pointSize / 2), pointSize, pointSize)
+
+            ctx.fillText(min, x, minY + 20)
+            ctx.fillText(max, x, maxY - 10)
+
+            ctx.beginPath()
+            ctx.lineTo(x, minY)
+            ctx.lineTo(x, maxY)
+            ctx.stroke()
+        }
+    })
+
+    ctx.stroke()
+}
+
+const createPossibilityChart = async (data, filename) => {
+    const o = {
+        width: 1000,
+        height: 600,
+        margin: {
+            top: 100,
+            right: 50,
+            bottom: 100,
+            left: 100
+        },
+        innerOffset: 20
+    }
+
+    const canvas = createCanvas(o.width, o.height)
+    const ctx = canvas.getContext('2d')
+
+    let high = 0
+    data.forEach(({max}) => {
+        if (max > high) {
+            high = max
+        }
+    })
+    o.highestPrice = high
+
+    o.xAxisYPosition = o.height - o.margin.bottom
+    o.xAxisWidth = o.width - o.margin.right - o.margin.left
+    o.xTickCount = 12
+    o.xTickDistance = o.xAxisWidth / o.xTickCount
+
+    o.yAxisHeight = o.height - o.margin.top - o.margin.bottom
+    o.numberOfYTicks = Math.ceil(o.highestPrice / 10) + 1
+    o.yTickDistance = o.yAxisHeight / o.numberOfYTicks
+
+    fillBackground(ctx, o)
+    renderXAxis(ctx, o)
+    renderYAxis(ctx, o)
+    renderPossibilityData(ctx, o, data)
+    await saveImage(canvas, filename)
+}
+
 exports.createChart = createChart
+exports.createPossibilityChart = createPossibilityChart

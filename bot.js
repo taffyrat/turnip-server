@@ -272,10 +272,11 @@ const getPredictionsForUser = (user) => {
 
 const handlePredictCommand = (message) => {
     const user = getUserForMessage(message)
-    const {possibilities} = getPredictionsForUser(user)
+    const {possibilities, summary} = getPredictionsForUser(user)
 
     if (possibilities.length >= 5) {
-        message.channel.send(`We don\'t have enough data to determine ${user.name}'s pattern yet. Check back after adding some more info!`)
+        message.channel.send(`We don\'t have enough data to narrow down ${user.name}'s pattern yet. However, here are the min and max values for all possible patterns:`)
+        createAndSendPossibilityChart(summary, 'summary', user, message)
     } else if (possibilities.length === 0) {
         message.channel.send(`Something went wrong. Are all of ${user.name}'s prices entered correctly?`)
     } else {

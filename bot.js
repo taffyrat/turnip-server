@@ -1,72 +1,43 @@
 require('dotenv').config()
 
 const { Client, MessageAttachment } = require('discord.js')
-const { GoogleSpreadsheet } = require('google-spreadsheet')
 
 const { createChart } = require('./viz')
+
+const fs = require('fs')
  
 const client = new Client()
 
-let doc
+let data = {
+    users: []
+}
 
-const authors = []
-
-const getAuthors = async () => {
-    const sheet = await findAndLoadSheet('Config')
-    await sheet.loadCells('A1:A')
-    await sheet.loadCells('B1:B')
-
-    let i = 2
-    let cell
-    while ((cell = sheet.getCellByA1(`A${i}`)).value !== null) {
-        authors.push({
-            name: cell.value,
-            color: sheet.getCellByA1(`B${i}`).value
-        })
-
-        i += 1
-    }
+const saveData = () => {
+    fs.writeFileSync('./data.json', JSON.stringify(data))
 }
 
 const initDoc = async () => {
     console.log('Initializing...')
-    doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID)
-    await doc.useServiceAccountAuth({
-        client_email: process.env.GOOGLE_SERVICES_CLIENT_EMAIL,
-        private_key: process.env.GOOGLE_SERVICES_PRIVATE_KEY,
-    })
-    await doc.loadInfo()
-    console.log('Connected to Google Sheets')
-    console.log('Loading author information...')
-    await getAuthors()
-    console.log('Authors have been loaded')
+
+    if (fs.existsSync('./data.json')) {
+        const json = fs.readFileSync('./data.json', 'utf8')
+        data = JSON.parse(json)
+    } else {
+        saveData()
+    }
+
+    console.log('Initialized')
 }
 
-const findAndLoadSheet = async (title) => {
-    let correctSheetIndex
+const getUser = (author) => data.users.find((user) => user.name === author)
 
-    doc.sheetsByIndex.forEach((sheet, i) => {
-        if (sheet.title === title) {
-            // Setting just the ID to avoid having aync inside the forEach loop
-            correctSheetIndex = i
-        }
-    })
+const getPriceIndex = (dayOfWeek, hour) => (dayOfWeek * 2) + (hour < 12 ? 0 : 1)
 
-    const sheet = doc.sheetsByIndex[correctSheetIndex]
-    await sheet.loadCells('C3:D17')
+const updatePrice = (dayOfWeek, hour, price, array) => {
+    const index = getPriceIndex(dayOfWeek, hour)
+    array[index] = price
 
-    return sheet
-}
-
-const getCellIndex = (dayOfWeek, hour) => {
-    return 6 + (dayOfWeek * 2) + (hour < 12 ? 0 : 1)
-}
-
-const updatePrice = async (dayOfWeek, hour, price, sheet) => {
-    const cellIndex = getCellIndex(dayOfWeek, hour)
-    const cell = sheet.getCellByA1(`C${cellIndex}`)
-    cell.value = price
-    await sheet.saveUpdatedCells()
+    saveData()
 }
 
 const getLocalizedDate = (createdAt) => {
@@ -106,9 +77,6 @@ const handleTurnipPrice = async (message) => {
     const match = message.content.match(/([0-9]+)\/t/i)
     const price = match && parseInt(match[1])
 
-    // Get the name of the user
-    const author = message.author.username
-
     // Does this message contain a time of day?
     let hour
     if (/morning/i.test(message.content)) {
@@ -125,8 +93,7 @@ const handleTurnipPrice = async (message) => {
         dayOfWeek = getDayFromCreatedAt(message.createdAt)
     }
 
-    const sheet = await findAndLoadSheet(author)
-    await updatePrice(dayOfWeek, hour, price, sheet)
+    updatePrice(dayOfWeek, hour, price, getUser(message.author.username).prices)
 
     message.react(hour < 12 ? '☀️' : '🌘')
 }
@@ -135,41 +102,27 @@ const handleSellCommand = async (message) => {
     // Determine the current time slot
     const dayOfWeek = getDayFromCreatedAt(message.createdAt)
     const hour = getHourFromCreatedAt(message.createdAt)
-    const currentPriceCellIndex = getCellIndex(dayOfWeek, hour)
+    const currentPriceIndex = getPriceIndex(dayOfWeek, hour)
 
     // Get the current price for all users
     let highestPrice = 0
     let highestPriceUser
 
-    const listOfPromises = authors.map(async (author) => {
-        return await findAndLoadSheet(author.name)
-            .then((sheet) => ({sheet, author}))
+    data.users.forEach((user) => {
+        const price = user.prices[currentPriceIndex]
+        if (price && price > highestPrice) {
+            highestPrice = price
+            highestPriceUser = user.name
+        }
     })
 
-    await Promise.all(listOfPromises)
-        .then((tuples) => {
-            tuples.forEach(({sheet, author}) => {
-                const currentPriceCell = sheet.getCellByA1(`C${currentPriceCellIndex}`)
-
-                if (currentPriceCell.value > highestPrice) {
-                    highestPrice = currentPriceCell.value
-                    highestPriceUser = author.name
-                }
-            })
-        })
-
     // Find the buy price of the current user
-    const author = message.author.username
-    const sheet = await findAndLoadSheet(author)
+    const {buyPrice, buyQuantity} = getUser(message.author.username)
 
-    const quanityCell = sheet.getCellByA1('D3')
-    const priceCell = sheet.getCellByA1('D4')
-    const quantity = quanityCell.value
-    const buyPrice = priceCell.value
     const pricePerTurnipDiff = highestPrice - buyPrice
-    const bellDelta = pricePerTurnipDiff * quantity
+    const bellDelta = pricePerTurnipDiff * buyQuantity
     
-    if (!quantity || !buyPrice) {
+    if (!buyQuantity || !buyPrice) {
         message.channel.send(`Please call the \`buy\` command before attempting to sell.`)
         return
     }
@@ -182,20 +135,16 @@ const handleSellCommand = async (message) => {
 }
 
 const handleBuyCommand = async (message) => {
-    // Get the name of the user
-    const author = message.author.username
-    const sheet = await findAndLoadSheet(author)
-
-    // Get the quantity and price
+    // Get the quantity and price from the message
     const match = message.content.match(/([0-9]+) x ([0-9]+)/i)
     const quantity = match && parseInt(match[1])
     const price = match && parseInt(match[2])
 
-    const quanityCell = sheet.getCellByA1('D3')
-    const priceCell = sheet.getCellByA1('D4')
-    quanityCell.value = quantity
-    priceCell.value = price
-    await sheet.saveUpdatedCells()
+    const user = getUser(message.author.username)
+    user.buyPrice = price
+    user.buyQuantity = quantity
+
+    saveData()
 
     message.react('💸')
     const totalBells = quantity * price
@@ -203,14 +152,9 @@ const handleBuyCommand = async (message) => {
 }
 
 const handleInfoCommand = async (message) => {
-    // Get the name of the user
-    const author = message.author.username
-    const sheet = await findAndLoadSheet(author)
-    
-    const quanityCell = sheet.getCellByA1('D3')
-    const priceCell = sheet.getCellByA1('D4')
-    const quantity = quanityCell.value || 0
-    const price = priceCell.value || 0
+    const user = getUser(message.author.username)
+    const quantity = user.buyQuantity || 0
+    const price = user.buyPrice || 0
 
     const totalBells = quantity * price
     message.channel.send(`You bought ${quantity} turnips at ${price} per turnip, in total spent ${totalBells} bells.`)
@@ -243,33 +187,25 @@ Format: \`@turnip graph\`
 }
 
 const handleGraphCommand = async (message) => {
-    // Get all prices for all users
-    const sheet = await findAndLoadSheet('Graph')
-    await sheet.loadCells('A29:M33')
-
-    const data = []
-    for (let i = 0; i < authors.length; i++) {
-        const nameCell = sheet.getCellByA1(`A${29 + i}`)
-        const name = nameCell.value
-        const author = authors.find((author) => author.name === name.trim())
-
-        const values = []
-        for (let k = 0; k < 12; k++) {
-            const val = sheet.getCell(28 + i, k + 1).value
-            values.push(val || 0)
-        }
-
-        data.push({
-            user: author.name,
-            values,
-            color: author.color
-        })
-    }
-
-    await createChart(data, './chart.png')
+    await createChart(data.users, './chart.png')
 
     const attachment = new MessageAttachment('./chart.png')
     message.channel.send(attachment)
+}
+
+const handleAddUserCommand = async (message) => {
+    const match = message.content.match(/add me ([A-Z]+)/i)
+    const color = match && match[1]
+
+    data.users.push({
+        name: message.author.username,
+        color: color,
+        prices: [],
+        buyPrice: 0,
+        buyQuantity: 0
+    })
+
+    saveData()
 }
 
 client.on('ready', () => {
@@ -314,6 +250,12 @@ client.on('message', (message) => {
     if (mentioned && /graph/i.test(message.content)) {
         console.log('Received the graph command')
         handleGraphCommand(message)
+        return
+    }
+
+    if (mentioned && /add me/i.test(message.content)) {
+        console.log('Received the add user command')
+        handleAddUserCommand(message)
         return
     }
     

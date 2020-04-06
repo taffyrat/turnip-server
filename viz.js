@@ -6,7 +6,7 @@ const findHighestPrice = (data) => {
 
     data.forEach((entry) => {
         let userHighest = 0
-        entry.values.forEach((price) => {
+        entry.prices.forEach((price) => {
             if (price > userHighest) {
                 userHighest = price
             }
@@ -97,12 +97,12 @@ const renderData = (ctx, o, data) => {
         const labelY = o.margin.top / 2
         const labelRectSize = 10
         ctx.fillRect(labelX, labelY - labelRectSize, labelRectSize, labelRectSize)
-        ctx.fillText(entry.user, labelX + labelRectSize * 1.5, labelY)
+        ctx.fillText(entry.name, labelX + labelRectSize * 1.5, labelY)
     
         // Render the data
         ctx.beginPath()
     
-        entry.values.forEach((price, i) => {
+        entry.prices.forEach((price, i) => {
             if (price === 0) {
                 ctx.stroke()
                 ctx.beginPath()

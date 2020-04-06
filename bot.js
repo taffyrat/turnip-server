@@ -129,6 +129,10 @@ const getHighestPossibilityForAllUsers = () => {
     // Ignore all values that have already passed
     // We only want future values
     allSummaries.forEach((summary) => {
+        if (!summary.prices.length) {
+            return
+        }
+
         summary.prices.forEach(({min, max}, i) => {
             if (min === max) {
                 return
@@ -293,6 +297,10 @@ const createAndSendPossibilityChart = async (possibility, i, user, message) => {
 }
 
 const getSummaryForUser = (user) => {
+    if (user.prices.length === 0) {
+        return {prices: []}
+    }
+
     // Replace 0s with NaN to match expected input
     const prices = [
         user.islandBuyPrice,
@@ -305,6 +313,10 @@ const getSummaryForUser = (user) => {
 }
 
 const getPredictionsForUser = (user) => {
+    if (user.prices.length === 0) {
+        return {possibilities: [], summary: {}}
+    }
+
     // Replace 0s with NaN to match expected input
     const prices = [
         user.islandBuyPrice,
@@ -320,7 +332,6 @@ const getPredictionsForUser = (user) => {
     // If you haven't entered your buy price,
     // possibilities can differ by that
     // but we don't care about those, so THROW 'EM AWAY
-    // TODO: This filtering seems to take a while right now, so we may want to clean it up
     possibilities = possibilities.filter((poss, i, self) => {
         const prices = JSON.stringify(poss.prices.slice(2))
         return i === self.findIndex((p) => {

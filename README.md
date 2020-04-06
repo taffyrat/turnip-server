@@ -46,6 +46,14 @@ The bot will render a graph showing the turnip prices for all users over all tim
 @turnip graph
 ```
 
+### Predict
+
+The bot will attempt to predict your possible patterns. If there are 3 or fewer possibilities, it will render a graph for each.
+
+```
+@turnip predict
+```
+
 ### Help
 
 The bot will print out a list of commands.
@@ -53,3 +61,9 @@ The bot will print out a list of commands.
 ```
 @turnip help
 ```
+
+## Acknowledgements
+
+Original inspiration came from [this great twitter thread](https://twitter.com/nataliewatson/status/1244723856272654344?s=20).
+
+Price predictions from [ac-nh-turnip-prices](https://github.com/mikebryant/ac-nh-turnip-prices).

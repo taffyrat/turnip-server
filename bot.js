@@ -231,7 +231,7 @@ const handlePredictCommand = (message) => {
     ]
     const possibilities = analyzePossibilities(prices)
 
-    if (possibilities.length > 3) {
+    if (possibilities.length >= 3) {
         message.channel.send('We don\'t have enough data to determine your pattern yet. Check back after adding some more info!')
     } else {
         message.channel.send('We can narrow your pattern down to these possibilities:')

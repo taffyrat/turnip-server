@@ -40,10 +40,11 @@ The bot will check the current prices and determine how much money you could mak
 
 ### Turnip info
 
-The bot will check your current quantity of turnips purchased, along with the price you bought them for and the total price.
+The bot will check your current quantity of turnips purchased, along with the price you bought them for and the total price. You can also check the info for another user by specifying their username.
 
 ```
 @turnip info
+@turnip info <username>
 ```
 
 ### Graph
@@ -56,10 +57,11 @@ The bot will render a graph showing the turnip prices for all users over all tim
 
 ### Predict
 
-The bot will attempt to predict your possible patterns. If there are 5 or fewer possibilities, it will render a graph for each.
+The bot will attempt to predict your possible patterns. If there are 5 or fewer possibilities, it will render a graph for each. You can also check the predictions for another user by specifying their username.
 
 ```
 @turnip predict
+@turnip predict <username>
 ```
 
 ### Help

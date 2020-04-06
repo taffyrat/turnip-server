@@ -35,6 +35,19 @@ const initDoc = async () => {
 
 const getUser = (author) => data.users.find((user) => user.name === author)
 
+const getUserForMessage = (message) => {
+    let username = message.author.username
+
+    // Check if any other user is specified
+    data.users.forEach(({name}) => {
+        if (message.content.includes(name)) {
+            username = name
+        }
+    })
+
+    return getUser(username)
+}
+
 const getPriceIndex = (dayOfWeek, hour) => (dayOfWeek * 2) + (hour < 12 ? 0 : 1)
 
 const updatePrice = (dayOfWeek, hour, price, array) => {
@@ -158,12 +171,12 @@ const handleBuyCommand = async (message) => {
 }
 
 const handleInfoCommand = async (message) => {
-    const {purchased} = getUser(message.author.username)
-    const quantity = purchased.quantity || 0
-    const price = purchased.price || 0
+    const user = getUserForMessage(message)
+    const quantity = user.purchased.quantity || 0
+    const price = user.purchased.price || 0
 
     const totalBells = quantity * price
-    message.channel.send(`You bought ${quantity} turnips at ${price} per turnip, in total spent ${totalBells} bells.`)
+    message.channel.send(`${user.name} bought ${quantity} turnips at ${price} per turnip, spending ${totalBells} bells in total.`)
 }
 
 const handleHelpCommand = (message) => {
@@ -227,8 +240,7 @@ const createAndSendPossibilityChart = async (possibility, i, user, message) => {
     message.channel.send(attachment)
 }
 
-const handlePredictCommand = (message) => {
-    const user = getUser(message.author.username)
+const getPredictionsForUser = (user) => {
     // Replace 0s with NaN to match expected input
     const prices = [
         user.islandBuyPrice,
@@ -238,6 +250,7 @@ const handlePredictCommand = (message) => {
 
     let possibilities = analyzePossibilities(prices)
     // Remove the final entry, which is a summary
+    const summary = possibilities[possibilities.length - 1]
     possibilities = possibilities.slice(0, possibilities.length - 1)
 
     // If you haven't entered your buy price,
@@ -251,10 +264,22 @@ const handlePredictCommand = (message) => {
         })
     })
 
+    return ({
+        possibilities,
+        summary
+    })
+}
+
+const handlePredictCommand = (message) => {
+    const user = getUserForMessage(message)
+    const {possibilities} = getPredictionsForUser(user)
+
     if (possibilities.length >= 5) {
-        message.channel.send('We don\'t have enough data to determine your pattern yet. Check back after adding some more info!')
+        message.channel.send(`We don\'t have enough data to determine ${user.name}'s pattern yet. Check back after adding some more info!`)
+    } else if (possibilities.length === 0) {
+        message.channel.send(`Something went wrong. Are all of ${user.name}'s prices entered correctly?`)
     } else {
-        message.channel.send('We can narrow your pattern down to these possibilities:')
+        message.channel.send(`We can narrow ${user.name}'s pattern down to these possibilities:`)
 
         possibilities.forEach((possibility, i) => {
             createAndSendPossibilityChart(possibility, i, user, message)

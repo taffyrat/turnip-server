@@ -1,4 +1,5 @@
 const fs = require('fs')
+const path = require('path')
 const { createCanvas } = require('canvas')
 
 const findHighestPrice = (data) => {
@@ -127,14 +128,21 @@ const renderData = (ctx, o, data) => {
     })
 }
 
+const directory = 'charts'
+
 const saveImage = async (canvas, filename) => {
+    if (!fs.existsSync(directory)) {
+        fs.mkdirSync(directory)
+    }
+
     return new Promise((resolve) => {
-        const out = fs.createWriteStream(filename)
+        const filePath = path.join(directory, filename)
+        const out = fs.createWriteStream(filePath)
         const stream = canvas.createPNGStream()
         stream.pipe(out)
         out.on('finish', () =>  {
             console.log('Created a new chart PNG')
-            resolve()
+            resolve(filePath)
         })
     })
 }
@@ -170,7 +178,7 @@ const createChart = async (data, filename) => {
     renderXAxis(ctx, o)
     renderYAxis(ctx, o)
     renderData(ctx, o, data)
-    await saveImage(canvas, filename)
+    return await saveImage(canvas, filename)
 }
 
 const renderPossibilityData = (ctx, o, prices) => {
@@ -253,7 +261,7 @@ const createPossibilityChart = async (data, filename) => {
     renderXAxis(ctx, o)
     renderYAxis(ctx, o)
     renderPossibilityData(ctx, o, data)
-    await saveImage(canvas, filename)
+    return await saveImage(canvas, filename)
 }
 
 exports.createChart = createChart

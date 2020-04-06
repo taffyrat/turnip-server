@@ -193,10 +193,10 @@ Format: \`@turnip graph\`
 }
 
 const handleGraphCommand = async (message) => {
-    const filename = path.join('.', 'charts', 'chart.png')
-    await createChart(data.users, filename)
+    const filename = 'chart.png'
+    const filePath = await createChart(data.users, filename)
 
-    const attachment = new MessageAttachment(filename)
+    const attachment = new MessageAttachment(filePath)
     message.channel.send(attachment)
 }
 
@@ -221,9 +221,9 @@ const handleAddUserCommand = async (message) => {
 const createAndSendPossibilityChart = async (possibility, i, user, message) => {
     // Ignore the first points because they represent the buy price
     const data = possibility.prices.slice(2)
-    const filename = path.join('.', 'charts', `${user.name}-possibilities-${i}.png`)
-    await createPossibilityChart(data, filename)
-    const attachment = new MessageAttachment(filename)
+    const filename = path.join(`${user.name}-possibilities-${i}.png`)
+    const filePath = await createPossibilityChart(data, filename)
+    const attachment = new MessageAttachment(filePath)
     message.channel.send(attachment)
 }
 

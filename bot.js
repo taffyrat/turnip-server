@@ -121,17 +121,17 @@ const handleSellCommand = async (message) => {
     })
 
     // Find the buy price of the current user
-    const {buyPrice, buyQuantity} = getUser(message.author.username)
+    const {purchased} = getUser(message.author.username)
 
-    const pricePerTurnipDiff = highestPrice - buyPrice
-    const bellDelta = pricePerTurnipDiff * buyQuantity
+    const pricePerTurnipDiff = highestPrice - purchased.price
+    const bellDelta = pricePerTurnipDiff * purchased.quantity
     
-    if (!buyQuantity || !buyPrice) {
+    if (!purchased.quantity || !purchased.price) {
         message.channel.send(`Please call the \`buy\` command before attempting to sell.`)
         return
     }
 
-    if (buyPrice >= highestPrice) {
+    if (purchased.price >= highestPrice) {
         message.channel.send(`Don't sell! You'll lose ${bellDelta} bells. If you have to, ${highestPriceUser} has the best price at ${highestPrice} bells/turnip`)
     } else {
         message.channel.send(`If you sell to ${highestPriceUser}, you can make a profit of ${bellDelta} bells. Their price is ${highestPrice} bells/turnip`)
@@ -145,8 +145,10 @@ const handleBuyCommand = async (message) => {
     const price = match && parseInt(match[2])
 
     const user = getUser(message.author.username)
-    user.buyPrice = price
-    user.buyQuantity = quantity
+    user.purchased = {
+        price,
+        quantity   
+    }
 
     saveData()
 
@@ -156,9 +158,9 @@ const handleBuyCommand = async (message) => {
 }
 
 const handleInfoCommand = async (message) => {
-    const user = getUser(message.author.username)
-    const quantity = user.buyQuantity || 0
-    const price = user.buyPrice || 0
+    const {purchased} = getUser(message.author.username)
+    const quantity = purchased.quantity || 0
+    const price = purchased.price || 0
 
     const totalBells = quantity * price
     message.channel.send(`You bought ${quantity} turnips at ${price} per turnip, in total spent ${totalBells} bells.`)
@@ -206,8 +208,11 @@ const handleAddUserCommand = async (message) => {
         name: message.author.username,
         color: color,
         prices: [],
-        buyPrice: 0,
-        buyQuantity: 0
+        purchased: {
+            price: 0,
+            quantity: 0
+        },
+        islandBuyPrice: 0
     })
 
     saveData()
@@ -224,14 +229,29 @@ const createAndSendPossibilityChart = async (possibility, i, user, message) => {
 
 const handlePredictCommand = (message) => {
     const user = getUser(message.author.username)
+    // Replace 0s with NaN to match expected input
     const prices = [
-        user.buyPrice,
-        user.buyPrice,
+        user.islandBuyPrice,
+        user.islandBuyPrice,
         ...user.prices
-    ]
-    const possibilities = analyzePossibilities(prices)
+    ].map((price) => price || NaN)
 
-    if (possibilities.length >= 3) {
+    let possibilities = analyzePossibilities(prices)
+    // Remove the final entry, which is a summary
+    possibilities = possibilities.slice(0, possibilities.length - 1)
+
+    // If you haven't entered your buy price,
+    // possibilities can differ by that
+    // but we don't care about those, so THROW 'EM AWAY
+    possibilities = possibilities.filter((poss, i, self) => {
+        const prices = JSON.stringify(poss.prices.slice(2))
+        return i === self.findIndex((p) => {
+            const pPrices = JSON.stringify(p.prices.slice(2))
+            return pPrices === prices
+        })
+    })
+
+    if (possibilities.length >= 5) {
         message.channel.send('We don\'t have enough data to determine your pattern yet. Check back after adding some more info!')
     } else {
         message.channel.send('We can narrow your pattern down to these possibilities:')
@@ -240,6 +260,18 @@ const handlePredictCommand = (message) => {
             createAndSendPossibilityChart(possibility, i, user, message)
         })
     }
+}
+
+const handleDaisyCommand = (message) => {
+    const match = message.content.match(/([0-9]+)\/t/i)
+    const price = match && parseInt(match[1])
+
+    const user = getUser(message.author.username)
+    user.islandBuyPrice = price
+
+    saveData()
+
+    message.react('🐷')
 }
 
 client.on('ready', () => {
@@ -255,7 +287,7 @@ client.on('message', (message) => {
         return 
     }
 
-    const mentioned = message.mentions.users.find(({username}) => username === 'turnip')
+    const mentioned = message.mentions.users.find((user) => user === client.user)
 
     if (mentioned && /buy/i.test(message.content)) {
         console.log('Received the buy command')
@@ -296,6 +328,12 @@ client.on('message', (message) => {
     if (mentioned && /predict/i.test(message.content)) {
         console.log('Received the predict command')
         handlePredictCommand(message)
+        return
+    }
+
+    if (mentioned && /daisy/i.test(message.content)) {
+        console.log('Received the Daisy command')
+        handleDaisyCommand(message)
         return
     }
     

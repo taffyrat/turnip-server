@@ -11,6 +11,14 @@ Record the number of turnips that you have purchased, and the price you paid for
 @turnip buy 100 x 99
 ```
 
+### Add Daisy Mae's price (for YOUR island)
+
+To get the best prediction, you need to tell the bot the price Daisy Mae was selling turnips for on your island, even if you did not buy turnips at this price.
+
+```
+@turnip daisy <price per turnip>/t
+```
+
 ### Add a turnip price
 
 Add a turnip price. By default, it assumes the price is for the current time slot. You can also manually specify a time slot if you are updating a previous price.
@@ -48,7 +56,7 @@ The bot will render a graph showing the turnip prices for all users over all tim
 
 ### Predict
 
-The bot will attempt to predict your possible patterns. If there are 3 or fewer possibilities, it will render a graph for each.
+The bot will attempt to predict your possible patterns. If there are 5 or fewer possibilities, it will render a graph for each.
 
 ```
 @turnip predict

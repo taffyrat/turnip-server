@@ -10,6 +10,19 @@ const path = require('path')
  
 const client = new Client()
 
+// Returns the ISO week of the date.
+// From https://weeknumber.net/how-to/javascript
+Date.prototype.getWeek = function() {
+    var date = new Date(this.getTime());
+    date.setHours(0, 0, 0, 0);
+    // Thursday in current week decides the year.
+    date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+    // January 4 is always in week 1.
+    var week1 = new Date(date.getFullYear(), 0, 4);
+    // Adjust to Thursday in week 1 and count number of weeks from date to week1.
+    return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+}
+
 let data = {
     users: []
 }
@@ -22,19 +35,47 @@ const patterns = {
     'Small Spike': 3
 }
 
+const getDataFilename = (date = new Date()) => {
+    const currentYear = date.getFullYear()
+    const currentWeek = date.getWeek()
+    return path.join('.', `data-${currentYear}-${currentWeek}.json`)
+}
+
 const saveData = () => {
-    const filename = path.join('.', 'data.json')
-    fs.writeFileSync(filename, JSON.stringify(data))
+    fs.writeFileSync(getDataFilename(), JSON.stringify(data))
+}
+
+const handleNewWeek = () => {
+    data.users.forEach((user) => {
+        user.previousPattern = user.currentPattern
+        user.currentPattern = ''
+
+        user.prices = []
+        user.purchased = {}
+        user.islandBuyPrice = 0
+    })
+
+    saveData()
 }
 
 const initDoc = async () => {
     console.log('Initializing...')
 
-    const filename = path.join('.', 'data.json')
-    if (fs.existsSync(filename)) {
-        const json = fs.readFileSync(filename, 'utf8')
+    // Select a date from last week
+    const lastWeekDate = new Date()
+    lastWeekDate.setDate(lastWeekDate.getDate() - 7)
+
+    if (fs.existsSync(getDataFilename())) {
+        const json = fs.readFileSync(getDataFilename(), 'utf8')
         data = JSON.parse(json)
+    } else if (fs.existsSync(getDataFilename(lastWeekDate))) {
+        // Transfer the relevant data from last week
+        // Mostly the users and their previous pattern
+        const json = fs.readFileSync(getDataFilename(lastWeekDate), 'utf8')
+        data = JSON.parse(json)
+        handleNewWeek()
     } else {
+        // Create an empty data file
         saveData()
     }
 
@@ -349,6 +390,13 @@ const getPredictionsForUser = async (user, message) => {
         const filePath = await createProbabilityChart(possibilities, `${user.name}-summary.png`)
         const attachment = new MessageAttachment(filePath)
         message.channel.send(`Here's the probability distribution of your prices:`, attachment)
+    }
+
+    if (Object.keys(probabilityMap).length === 1) {
+        // We've only got a single pattern
+        // which means we can update this week's pattern
+        user.currentPattern = Object.keys(probabilityMap)[0]
+        saveData()
     }
 }
 

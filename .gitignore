@@ -110,4 +110,4 @@ charts/
 turnip server.bat
 desktop.ini
 Command Prompt.lnk
-data.json
+data*.json

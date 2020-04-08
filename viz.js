@@ -53,10 +53,22 @@ const renderXAxis = (ctx, o) => {
     }
 }
 
+const setYTickUnit = (o) => {
+    let t = 10
+
+    if (o.highestPrice > 200 && o.highestPrice < 400) {
+        t = 30
+    } else if (o.highestPrice >= 400) {
+        t = 50
+    }
+
+    o.yTickUnit = t
+}
+
 const yMap = (input, o) => {
-    // Round highest price up to the nearest 10
+    // Round highest price up to the nearest unit
     // To match how we're actually setting this range
-    const high = (Math.ceil(o.highestPrice / 10) + 1) * 10
+    const high = (Math.ceil(o.highestPrice / o.yTickUnit) + 1) * o.yTickUnit
 
     const slope = (o.numberOfYTicks * o.yTickDistance) / high
     return slope * input
@@ -74,6 +86,7 @@ const renderYAxis = (ctx, o) => {
 
     ctx.textAlign = 'right'
 
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)'
     // Don't render the line for 0
     for (let i = 1; i < o.numberOfYTicks; i++) {
         const y = o.xAxisYPosition - (o.yTickDistance * i)
@@ -83,8 +96,9 @@ const renderYAxis = (ctx, o) => {
         ctx.lineTo(o.width - o.margin.right, y)
         ctx.stroke()
 
-        ctx.fillText(i * 10, o.margin.left - o.innerOffset, y)
+        ctx.fillText(i * o.yTickUnit, o.margin.left - o.innerOffset, y)
     }
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'
 }
 
 const renderData = (ctx, o, data) => {
@@ -107,7 +121,7 @@ const renderData = (ctx, o, data) => {
         ctx.beginPath()
     
         entry.prices.forEach((price, i) => {
-            if (price === 0) {
+            if (!price) {
                 ctx.stroke()
                 ctx.beginPath()
                 return
@@ -170,8 +184,10 @@ const createChart = async (data, filename) => {
     o.xTickCount = 12
     o.xTickDistance = o.xAxisWidth / o.xTickCount
 
+    setYTickUnit(o)
+
     o.yAxisHeight = o.height - o.margin.top - o.margin.bottom
-    o.numberOfYTicks = Math.ceil(o.highestPrice / 10) + 1
+    o.numberOfYTicks = Math.ceil(o.highestPrice / o.yTickUnit) + 1
     o.yTickDistance = o.yAxisHeight / o.numberOfYTicks
 
     fillBackground(ctx, o)
@@ -253,8 +269,10 @@ const createPossibilityChart = async (data, filename) => {
     o.xTickCount = 12
     o.xTickDistance = o.xAxisWidth / o.xTickCount
 
+    setYTickUnit(o)
+
     o.yAxisHeight = o.height - o.margin.top - o.margin.bottom
-    o.numberOfYTicks = Math.ceil(o.highestPrice / 10) + 1
+    o.numberOfYTicks = Math.ceil(o.highestPrice / o.yTickUnit) + 1
     o.yTickDistance = o.yAxisHeight / o.numberOfYTicks
 
     fillBackground(ctx, o)
@@ -264,5 +282,92 @@ const createPossibilityChart = async (data, filename) => {
     return await saveImage(canvas, filename)
 }
 
+const renderProbabilityData = (ctx, o, data) => {
+    const pointSize = 5
+
+    ctx.textAlign = 'center'
+
+    ctx.strokeStyle = 'black'
+    ctx.fillStyle = 'black'
+
+    const summary = data[data.length - 1]
+
+    summary.prices.slice(2).forEach(({min, max}, i) => {
+        const x = o.margin.left + o.innerOffset + (o.xTickDistance * i)
+        const pointX = x - (pointSize / 2)
+
+        if (min !== max) {
+            const minY = o.xAxisYPosition - yMap(min, o)
+            const maxY = o.xAxisYPosition - yMap(max, o)
+
+            ctx.fillText(min, pointX, minY + 20)
+            ctx.fillText(max, pointX, maxY - 10)
+        }
+    })
+    
+    data.forEach((entry) => {
+        const prices = entry.prices.slice(2)
+        prices.forEach(({min, max}, i) => {
+            const x = o.margin.left + o.innerOffset + (o.xTickDistance * i)
+            const pointX = x - (pointSize / 2)
+
+            if (min === max) {
+                const y = o.xAxisYPosition - yMap(min, o)
+                const pointY = y - (pointSize / 2)
+
+                ctx.fillRect(pointX, pointY, pointSize, pointSize)
+                ctx.fillText(min, x, y - 10)
+            } else {
+                ctx.strokeStyle = 'grey'
+                ctx.fillStyle = `rgba(0, 0, 0, ${entry.probability})`
+
+                const minY = o.xAxisYPosition - yMap(min, o)
+                const maxY = o.xAxisYPosition - yMap(max, o)
+
+                ctx.fillRect(pointX - 10, minY - (pointSize / 2), 20, maxY - minY)
+            }
+        })
+    })
+}
+
+const createProbabilityChart = async (data, filename) => {
+    const o = {
+        width: 1000,
+        height: 600,
+        margin: {
+            top: 100,
+            right: 50,
+            bottom: 100,
+            left: 100
+        },
+        innerOffset: 20
+    }
+
+    const canvas = createCanvas(o.width, o.height)
+    const ctx = canvas.getContext('2d')
+
+    const summary = data[data.length - 1]
+    o.highestPrice = summary.weekMax
+
+    o.xAxisYPosition = o.height - o.margin.bottom
+    o.xAxisWidth = o.width - o.margin.right - o.margin.left
+    o.xTickCount = 12
+    o.xTickDistance = o.xAxisWidth / o.xTickCount
+
+    setYTickUnit(o)
+
+    o.yAxisHeight = o.height - o.margin.top - o.margin.bottom
+    o.numberOfYTicks = Math.ceil(o.highestPrice / o.yTickUnit) + 1
+    o.yTickDistance = o.yAxisHeight / o.numberOfYTicks
+
+    fillBackground(ctx, o)
+    renderXAxis(ctx, o)
+    renderYAxis(ctx, o)
+    renderProbabilityData(ctx, o, data)
+
+    return await saveImage(canvas, filename)
+}
+
 exports.createChart = createChart
 exports.createPossibilityChart = createPossibilityChart
+exports.createProbabilityChart = createProbabilityChart

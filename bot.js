@@ -2,7 +2,7 @@ require('dotenv').config()
 
 const { Client, MessageAttachment } = require('discord.js')
 
-const { createChart, createPossibilityChart } = require('./viz')
+const { createChart, createPossibilityChart, createProbabilityChart } = require('./viz')
 const { analyzePossibilities } = require('./predictions')
 
 const fs = require('fs')
@@ -12,6 +12,14 @@ const client = new Client()
 
 let data = {
     users: []
+}
+
+const patterns = {
+    'Unknown': -1,
+    'Fluctuating': 0,
+    'Big Spike': 1,
+    'Decreasing': 2,
+    'Small Spike': 3
 }
 
 const saveData = () => {
@@ -287,15 +295,6 @@ const handleAddUserCommand = async (message) => {
     saveData()
 }
 
-const createAndSendPossibilityChart = async (possibility, i, user, message) => {
-    // Ignore the first points because they represent the buy price
-    const data = possibility.prices.slice(2)
-    const filename = path.join(`${user.name}-possibilities-${i}.png`)
-    const filePath = await createPossibilityChart(data, filename)
-    const attachment = new MessageAttachment(filePath)
-    message.channel.send(attachment)
-}
-
 const getSummaryForUser = (user) => {
     if (user.prices.length === 0) {
         return {prices: []}
@@ -308,13 +307,14 @@ const getSummaryForUser = (user) => {
         ...user.prices
     ].map((price) => price || NaN)
 
-    const poss = analyzePossibilities(prices)
+    const poss = analyzePossibilities(prices, false, patterns[user.previousPattern || 'Unknown'])
     return poss[poss.length - 1]
 }
 
-const getPredictionsForUser = (user) => {
-    if (user.prices.length === 0) {
-        return {possibilities: [], summary: {}}
+const getPredictionsForUser = async (user, message) => {
+    if (!user.prices.length || !user.previousPattern) {
+        message.channel.send(`Something went wrong. Are ${user.name}'s prices and previous pattern entered correctly?`)
+        return
     }
 
     // Replace 0s with NaN to match expected input
@@ -324,44 +324,37 @@ const getPredictionsForUser = (user) => {
         ...user.prices
     ].map((price) => price || NaN)
 
-    let possibilities = analyzePossibilities(prices)
-    // Remove the final entry, which is a summary
-    const summary = possibilities[possibilities.length - 1]
-    possibilities = possibilities.slice(0, possibilities.length - 1)
+    const possibilities = analyzePossibilities(prices, false, patterns[user.previousPattern  || 'Unknown'])
 
-    // If you haven't entered your buy price,
-    // possibilities can differ by that
-    // but we don't care about those, so THROW 'EM AWAY
-    possibilities = possibilities.filter((poss, i, self) => {
-        const prices = JSON.stringify(poss.prices.slice(2))
-        return i === self.findIndex((p) => {
-            const pPrices = JSON.stringify(p.prices.slice(2))
-            return pPrices === prices
-        })
-    })
+    // Reduce the probabilities
+    const probabilityMap = possibilities.reduce((prev, curr) => {
+        if (curr.pattern_description === 'All patterns') {
+            return prev
+        }
 
-    return ({
-        possibilities,
-        summary
-    })
+        const prevProb = prev[curr.pattern_description] || 0
+        prev[curr.pattern_description] = prevProb + curr.probability
+        return prev
+    }, {})
+
+    // Print out the probability map
+    let probabilityString = ''
+    for (let [key, value] of Object.entries(probabilityMap)) {
+        probabilityString += `${key}: ${(value * 100).toFixed(1)}%\n`
+    }
+
+    message.channel.send(`Here are the probabilities of your possible patterns: \n${probabilityString}`)
+
+    if (possibilities.length <= 8) {
+        const filePath = await createProbabilityChart(possibilities, `${user.name}-summary.png`)
+        const attachment = new MessageAttachment(filePath)
+        message.channel.send(`Here's the probability distribution of your prices:`, attachment)
+    }
 }
 
 const handlePredictCommand = (message) => {
     const user = getUserForMessage(message)
-    const {possibilities, summary} = getPredictionsForUser(user)
-
-    if (possibilities.length >= 5) {
-        message.channel.send(`We don\'t have enough data to narrow down ${user.name}'s pattern yet. However, here are the min and max values for all possible patterns:`)
-        createAndSendPossibilityChart(summary, 'summary', user, message)
-    } else if (possibilities.length === 0) {
-        message.channel.send(`Something went wrong. Are all of ${user.name}'s prices entered correctly?`)
-    } else {
-        message.channel.send(`We can narrow ${user.name}'s pattern down to these possibilities:`)
-
-        possibilities.forEach((possibility, i) => {
-            createAndSendPossibilityChart(possibility, i, user, message)
-        })
-    }
+    getPredictionsForUser(user, message)
 }
 
 const handleDaisyCommand = (message) => {

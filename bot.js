@@ -2,7 +2,7 @@ require('dotenv').config()
 
 const { Client, MessageAttachment } = require('discord.js')
 
-const { createChart, createPossibilityChart, createProbabilityChart } = require('./viz')
+const { createChart, createProbabilityChart } = require('./viz')
 const { analyzePossibilities } = require('./predictions')
 
 const fs = require('fs')
@@ -58,7 +58,7 @@ const handleNewWeek = () => {
     saveData()
 }
 
-const initDoc = async () => {
+const initDoc = () => {
     console.log('Initializing...')
 
     // Select a date from last week
@@ -138,7 +138,7 @@ const checkContentForDay = (content) => {
     }
 }
 
-const handleTurnipPrice = async (message) => {
+const handleTurnipPrice = (message) => {
     // Extract the number
     const match = message.content.match(/([0-9]+)\/t/i)
     const price = match && parseInt(match[1])
@@ -208,7 +208,7 @@ const getHighestPossibilityForAllUsers = () => {
     })
 }
 
-const handleSellCommand = async (message) => {
+const handleSellCommand = (message) => {
     message.react('🤔')
 
     // Determine the current time slot
@@ -256,7 +256,7 @@ const handleSellCommand = async (message) => {
     }
 }
 
-const handleBuyCommand = async (message) => {
+const handleBuyCommand = (message) => {
     // Get the quantity and price from the message
     const match = message.content.match(/([0-9]+) x ([0-9]+)/i)
     const quantity = match && parseInt(match[1])
@@ -275,7 +275,7 @@ const handleBuyCommand = async (message) => {
     message.channel.send(`You spent ${totalBells} bells.`)
 }
 
-const handleInfoCommand = async (message) => {
+const handleInfoCommand = (message) => {
     const user = getUserForMessage(message)
     const quantity = user.purchased.quantity || 0
     const price = user.purchased.price || 0
@@ -318,7 +318,7 @@ const handleGraphCommand = async (message) => {
     message.channel.send(attachment)
 }
 
-const handleAddUserCommand = async (message) => {
+const handleAddUserCommand = (message) => {
     const match = message.content.match(/add me ([A-Z]+)/i)
     const color = match && match[1]
 

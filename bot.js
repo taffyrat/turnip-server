@@ -369,7 +369,7 @@ const getSummaryForUser = (user) => {
 }
 
 const getPredictionsForUser = async (user, message) => {
-    if (!user.prices.length || !user.previousPattern) {
+    if (!user.previousPattern) {
         message.channel.send(`Something went wrong. Are ${user.name}'s prices and previous pattern entered correctly?`)
         return
     }

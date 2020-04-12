@@ -307,6 +307,22 @@ Format: \`@turnip info\`
 **Graph**
 I'll show you the current graph including the data for all users.
 Format: \`@turnip graph\`
+
+**Predict**
+I'll attempt to predict the possible patterns for the user. If there are 5 or fewer possibilities, it will render a graph for each.
+
+Format: \`@turnip predict\`. \`@turnip predict <username>\`
+
+
+**Update your island's price**
+I'll add the price of turnips for your island. This is helpful for improving the accuracy of your predictions.
+
+Format: \`@turnip daisy <price per turnip>/t\`
+
+**Register a user with Turnip**
+I'll register you as a user so you can start tracking your turnip prices.
+
+Format: \`@turnip add me <colorword used in CSS>\`
 `)
 }
 

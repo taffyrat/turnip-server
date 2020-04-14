@@ -297,10 +297,7 @@ const renderProbabilityData = (ctx, o, data) => {
         const pointX = x - (pointSize / 2)
 
         if (min !== max) {
-            const minY = o.xAxisYPosition - yMap(min, o)
             const maxY = o.xAxisYPosition - yMap(max, o)
-
-            ctx.fillText(min, pointX, minY + 20)
             ctx.fillText(max, pointX, maxY - 10)
         }
     })

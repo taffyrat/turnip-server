@@ -400,13 +400,10 @@ const getPredictionsForUser = async (user, message) => {
         probabilityString += `${key}: ${(value * 100).toFixed(1)}%\n`
     }
 
-    message.channel.send(`Here are the probabilities of your possible patterns: \n${probabilityString}`)
-
-    if (possibilities.length <= 8) {
-        const filePath = await createProbabilityChart(possibilities, `${user.name}-summary.png`)
-        const attachment = new MessageAttachment(filePath)
-        message.channel.send(`Here's the probability distribution of your prices:`, attachment)
-    }
+    const filePath = await createProbabilityChart(possibilities, `${user.name}-summary.png`)
+    const attachment = new MessageAttachment(filePath)
+    message.channel.send(`Here are the probabilities of ${user.name}'s possible patterns: \n${probabilityString}`)
+    message.channel.send(`Here's the probability distribution of ${user.name}'s prices:`, attachment)
 
     if (Object.keys(probabilityMap).length === 1) {
         // We've only got a single pattern
@@ -417,6 +414,12 @@ const getPredictionsForUser = async (user, message) => {
 }
 
 const handlePredictCommand = (message) => {
+    // TODO: Maybe update getUserForMessage to handle this?
+    if (/all/.test(message.content)) {
+        data.users.forEach((user) => getPredictionsForUser(user, message))
+        return
+    }
+
     const user = getUserForMessage(message)
     getPredictionsForUser(user, message)
 }

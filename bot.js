@@ -30,9 +30,9 @@ let data = {
 const patterns = {
     'Unknown': -1,
     'Fluctuating': 0,
-    'Big Spike': 1,
+    'Large spike': 1,
     'Decreasing': 2,
-    'Small Spike': 3
+    'Small spike': 3
 }
 
 const getDataFilename = (date = new Date()) => {

@@ -500,7 +500,7 @@ client.on('message', (message) => {
     }
     
     // Does this message contain a turnip price?   
-    if (/[0-9]+\/t/i.test(message.content)) {
+    if (/^[0-9]+\/t/i.test(message.content)) {
         console.log('Received the turnip command')
         handleTurnipPrice(message)
         return

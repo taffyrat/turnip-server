@@ -51,7 +51,6 @@ const handleNewWeek = () => {
         user.currentPattern = ''
 
         user.prices = []
-        user.purchased = {}
         user.islandBuyPrice = 0
     })
 

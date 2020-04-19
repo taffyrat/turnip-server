@@ -139,6 +139,8 @@ const checkContentForDay = (content) => {
 }
 
 const handleTurnipPrice = (message) => {
+    const user = getUserForMessage(message)
+
     // Extract the number
     const match = message.content.match(/([0-9]+)\/t/i)
     const price = match && parseInt(match[1])
@@ -159,7 +161,7 @@ const handleTurnipPrice = (message) => {
         dayOfWeek = getDayFromCreatedAt(message.createdAt)
     }
 
-    updatePrice(dayOfWeek, hour, price, getUser(message.author.username).prices)
+    updatePrice(dayOfWeek, hour, price, user.prices)
 
     message.react(hour < 12 ? '☀️' : '🌘')
 }
@@ -262,7 +264,7 @@ const handleBuyCommand = (message) => {
     const quantity = match && parseInt(match[1])
     const price = match && parseInt(match[2])
 
-    const user = getUser(message.author.username)
+    const user = getUserForMessage(message)
     user.purchased = {
         price,
         quantity   
@@ -428,7 +430,7 @@ const handleDaisyCommand = (message) => {
     const match = message.content.match(/([0-9]+)\/t/i)
     const price = match && parseInt(match[1])
 
-    const user = getUser(message.author.username)
+    const user = getUserForMessage(message)
     user.islandBuyPrice = price
 
     saveData()
